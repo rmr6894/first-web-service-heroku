@@ -1,60 +1,21 @@
 // console.log('First web service starting up ...');
 
-const name = 'fred';
-const car = {
-  make: 'Ford',
-};
-
 // 1 - pull in the HTTP server module
 const http = require('http');
 
 // 2 - pull in URL and query modules (for URL parsing)
 const url = require('url');
 const query = require('querystring');
+const htmlHandler = require('./htmlResponses');
+const jsonHandler = require('./jsonResponses');
 
 // 3 - locally this will be 3000, on Heroku it will be assigned
 const port = process.env.PORT || process.env.NODE_PORT || 3000;
 
-// 4 - here's our index page
-const indexPage = `
-<html>
-    <head>
-        <title>Random Number Web Service</title>
-    </head>
-    <body>
-        <h1>Random Number Web Service!!!</h1>
-        <p>
-            Random Number Web Service - the endpoint is here --> 
-            <a href="/random-number">random-number</a> or <a href="/random-number?max=10">random-number?max=10</a>
-        </p>
-    </body>
-</html>`;
-
-// 5 - here's our 404 page
-const errorPage = `
-<html>
-    <head>
-        <title>404 - File Not Found!</title>
-    </head>
-    <body>
-        <h1>404 - File Not Found!</h1>
-        <p>Check your URL, or your typing!!</p>
-        <p>:-O</p>
-    </body>
-</html>`;
-
-// 6 - this will return a random number no bigger than `max`, as a string
-// we will also doing our query parameter validation here
-const getRandomNumberJSON = (max = 1) => {
-  let max2 = Number(max); // cast `max` to a Number
-  max2 = !max2 ? 1 : max2; // if `max` is not a number because it is "falsy" NaN, default it to 1
-  max2 = max2 < 1 ? 1 : max2; // if `max` is less than 1 default it to 1
-  const number = Math.random() * max2;
-  const responseObj = {
-    timeStamp: new Date(),
-    number,
-  };
-  return JSON.stringify(responseObj);
+const urlStruct = {
+  '/': htmlHandler.getIndexResponse,
+  '/random-number': jsonHandler.getRandomNumberResponse,
+  notFound: htmlHandler.get404Response,
 };
 
 // 7 - this is the function that will be called every time a client request comes in
@@ -68,22 +29,14 @@ const onRequest = (request, response) => {
   // console.log('pathname=', pathname);
 
   const params = query.parse(parsedUrl.query);
-  const { max } = params;
+  // const { max } = params;
   // console.log('params=', params);
   // console.log('max=', max);
 
-  if (pathname === '/') {
-    response.writeHead(200, { 'Content-Type': 'text/html' }); // send response headers
-    response.write(indexPage); // send content
-    response.end(); // close connection
-  } else if (pathname === '/random-number') {
-    response.writeHead(200, { 'Content-Type': 'application/json' }); // send response headers
-    response.write(getRandomNumberJSON(max)); // send content
-    response.end(); // close connection
+  if (urlStruct[pathname]) {
+    urlStruct[pathname](request, response, params);
   } else {
-    response.writeHead(404, { 'Content-Type': 'text/html' }); // send response headers
-    response.write(errorPage); // send content
-    response.end(); // close connection
+    urlStruct.notFound(request, response, params);
   }
 };
 
